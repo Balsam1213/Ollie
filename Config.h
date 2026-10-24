@@ -65,3 +65,8 @@
 
 // ===== 心情灯 =====
 #define LED_MAX 40 // WS2812 亮度封顶（/255），防夜间刺眼
+
+// ===== 附加功能开关（0/1，按需打开） =====
+#define BOOT_I2C_SCAN 0   // 1: 上电只跑 I2C 总线扫描并打印（M1 排查 OLED 地址/接线用）
+#define LIGHT_CALIBRATE 0 // 1: 每 500ms 打印光敏 ADC 均值（M5 标定阈值用，串口看数值）
+#define PET_WAKE_ENABLED 0 // 1: 睡觉时按"抚摸"可唤醒（彩蛋，默认按计划关闭）

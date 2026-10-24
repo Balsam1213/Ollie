@@ -36,6 +36,18 @@ void setup() {
     LOGF("[warn] DEBUG_FAST_DECAY 开启：数值衰减为 1点/秒（仅调试）\n");
 #endif
 
+#if BOOT_I2C_SCAN
+    // 只跑 I2C 扫描（Config.h 打开），用于 M1 排查；OLED 应出现 0x3C
+    Wire.begin(PIN_OLED_SDA, PIN_OLED_SCL);
+    LOGF("[scan] I2C 总线扫描开始\n");
+    for (uint8_t addr = 1; addr < 127; addr++) {
+        Wire.beginTransmission(addr);
+        if (Wire.endTransmission() == 0) LOGF("[scan] 发现设备: 0x%02X\n", addr);
+    }
+    LOGF("[scan] 完成，停在此模式\n");
+    while (true) delay(1000);
+#endif
+
     uint32_t now = millis();
     buzzer.begin();
     buttons.begin(now);
@@ -74,6 +86,11 @@ void loop() {
 
     if (now - tLight >= 500) {
         tLight = now;
+#if LIGHT_CALIBRATE
+        // 光敏标定模式：对照串口值改 Config.h 的两个阈值
+        LOGF("[light-cal] ADC=%u（暗<%u 亮>%u）\n",
+             lightSensor.raw(), LIGHT_DARK_ADC, LIGHT_BRIGHT_ADC);
+#endif
         LightEvent ev = lightSensor.update(now);
         if (ev == LightEvent::SleepTime)
             LOGF("[light] ADC=%u 持续变暗 → 入睡\n", lightSensor.raw());
@@ -86,7 +103,9 @@ void loop() {
         tSettle = now;
         pet.onSettle(now);
         const StatsData& d = stats.data();
-        LOGF("[stats] 饱食=%u 心情=%u 精力=%u %s\n",
-             d.food, d.mood, d.energy, pet.sleeping() ? "睡眠中" : "醒着");
+        // up/heap 是 M7 过夜长测的观测点：heap 持续下降说明有泄漏
+        LOGF("[stats] 饱食=%u 心情=%u 精力=%u %s | up=%lus heap=%lu\n",
+             d.food, d.mood, d.energy, pet.sleeping() ? "睡眠中" : "醒着",
+             (unsigned long)(now / 1000), (unsigned long)ESP.getFreeHeap());
     }
 }

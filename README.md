@@ -24,6 +24,7 @@ LightSensor.h/.cpp   光敏采样 + 昼夜判定（迟滞）
 Buzzer.h/.cpp        无源蜂鸣器
 MoodLight.h/.cpp     WS2812 心情灯
 platformio.ini       VS Code + PlatformIO 配置
+test/                本地逻辑单测（PC 上跑，不依赖硬件）
 wokwi/               Wokwi 在线仿真（diagram.json + 使用说明）
 docs/plan-v1.md      可行性评定与实施计划
 ```
@@ -37,6 +38,17 @@ docs/plan-v1.md      可行性评定与实施计划
 调试开关在 `Config.h`：
 - `OLLIE_DEBUG`：串口事件日志（115200），默认开
 - `DEBUG_FAST_DECAY`：注释掉则数值 1 分钟一轮，打开则 1 秒一轮，快速验证数值曲线
+- `BOOT_I2C_SCAN`：只跑 I2C 总线扫描（M1 排查 OLED 地址/接线）
+- `LIGHT_CALIBRATE`：每 500ms 打印光敏 ADC 均值（M5 标定阈值）
+- `PET_WAKE_ENABLED`：睡觉时按"抚摸"唤醒的彩蛋，默认关
+
+## 测试
+
+三层验证，逐层接近实机：
+
+1. **逻辑单测（本机即可）**：`bash test/run_tests.sh`——用 mock Arduino 桩在 PC 上跑真实模块代码，覆盖数值衰减/存档、按键消抖、昼夜迟滞判定、状态机优先级、蜂鸣时序、心情灯映射，共百余项断言。默认用 zig 编译（`py -m pip install ziglang`），也可 `CXX="g++" bash test/run_tests.sh`
+2. **固件编译**：`pio run`（或 PlatformIO 插件）对 ESP32-S3 真实工具链编译链接，验证全部代码可上机
+3. **在线仿真**：Wokwi 跑完整固件逻辑（见下节）
 
 ## 在线仿真（Wokwi）
 

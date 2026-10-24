@@ -22,7 +22,19 @@ void PetState::refresh(uint32_t now) {
 
 void PetState::onButton(ButtonEvent ev, uint32_t now) {
     if (ev == ButtonEvent::None) return;
-    if (asleep) return; // 睡着时按键无效；彩蛋"抚摸唤醒"留作 v1.1
+
+#if PET_WAKE_ENABLED
+    // 彩蛋：睡着时按"抚摸"唤醒（喂食不唤醒）；默认关闭
+    if (asleep) {
+        if (ev == ButtonEvent::Pet) {
+            asleep = false;
+            refresh(now);
+        }
+        return;
+    }
+#else
+    if (asleep) return; // 睡着时按键无效
+#endif
 
     if (ev == ButtonEvent::Feed) stats->onFeed();
     else                         stats->onPet();
