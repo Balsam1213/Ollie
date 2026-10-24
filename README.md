@@ -24,6 +24,7 @@ LightSensor.h/.cpp   光敏采样 + 昼夜判定（迟滞）
 Buzzer.h/.cpp        无源蜂鸣器
 MoodLight.h/.cpp     WS2812 心情灯
 platformio.ini       VS Code + PlatformIO 配置
+wokwi/               Wokwi 在线仿真（diagram.json + 使用说明）
 docs/plan-v1.md      可行性评定与实施计划
 ```
 
@@ -36,6 +37,10 @@ docs/plan-v1.md      可行性评定与实施计划
 调试开关在 `Config.h`：
 - `OLLIE_DEBUG`：串口事件日志（115200），默认开
 - `DEBUG_FAST_DECAY`：注释掉则数值 1 分钟一轮，打开则 1 秒一轮，快速验证数值曲线
+
+## 在线仿真（Wokwi）
+
+不接硬件先初验：按 [wokwi/README.md](wokwi/README.md) 在浏览器里仿真 ESP32-S3-DevKitC-1 + OLED + 双按键 + 光敏 + 蜂鸣器 + 板载 RGB，引脚与实机一致，可验收 M1–M6 的绝大部分逻辑。
 
 ## 硬件
 

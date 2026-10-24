@@ -4,13 +4,8 @@
  */
 #include <Arduino.h>
 
-// ===== 版本要求：需要 arduino-esp32 3.x（LEDC 新 API ledcAttach） =====
-#if __has_include("esp_arduino_version.h")
-#include "esp_arduino_version.h"
-#endif
-#if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR < 3
-#error "Ollie 需要 arduino-esp32 3.x，请在开发板管理器升级 ESP32 板级支持"
-#endif
+// arduino-esp32 2.x / 3.x 均可编译：LEDC 与 WS2812 的 API 差异
+// 在 Buzzer.cpp / MoodLight.cpp 内做了版本垫片（Wokwi 仿真同样适用）
 
 // ===== 调试开关 =====
 #define OLLIE_DEBUG 1 // 1: 串口(115200)打印事件日志；0: 关闭
