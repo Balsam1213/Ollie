@@ -26,7 +26,8 @@ MoodLight.h/.cpp     WS2812 心情灯
 platformio.ini       VS Code + PlatformIO 配置
 test/                本地逻辑单测（PC 上跑，不依赖硬件）
 wokwi/               Wokwi 在线仿真（diagram.json + 使用说明）
-docs/plan-v1.md      可行性评定与实施计划
+docs/                标准文档：需求/技术/规范/流程/工作说明/v1 计划
+devlog/              开发日志（按日记录 + TODO 总表）
 ```
 
 ## 编译烧录
@@ -62,4 +63,5 @@ ESP32-S3-DevKitC-1 (N16R8) · 0.96" SSD1306 128×64 I2C OLED · 光敏模块 · 
 
 ## 文档
 
-- [v1 可行性评定与实施计划](docs/plan-v1.md)
+- [docs/ · 项目标准文档](docs/README.md)：需求 / 技术规格 / 设计规范 / 执行步骤 / 工作说明 / v1 计划
+- [devlog/ · 开发日志](devlog/README.md)：按日记录 + [待办总表](devlog/TODO.md)
