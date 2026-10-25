@@ -7,6 +7,7 @@
 | [design-conventions.md](design-conventions.md) | 设计规范：代码风格、命名、架构约束、Git 与文档规矩 | 写任何代码之前 |
 | [procedures.md](procedures.md) | 执行步骤：构建、三层测试、标定、排查、验收的操作规程 | 动手干活时照着做 |
 | [work-guide.md](work-guide.md) | 工作说明：环境搭建、如何加功能、如何调试、常见坑 | 新会话/新人上手第一篇 |
+| [roadmap.md](roadmap.md) | 迭代路线图：v1.1→v2.2 各版本内容、实现方式、验收与排布 | 看接下来做什么、排优先级时 |
 | [plan-v1.md](plan-v1.md) | v1 可行性评定与实施计划（立项文档，含里程碑 M0–M7） | 了解项目全貌和决策背景 |
 
 ## 文档规矩（全项目适用）

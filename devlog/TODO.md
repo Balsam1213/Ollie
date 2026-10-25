@@ -20,11 +20,13 @@
 - [ ] 睡眠中"抚摸唤醒"后是否给一个伸懒腰表情（新 Emotion 或复用 Happy）
 - [ ] OLED 防灼伤参数复盘：漂移周期 30s / 睡眠调暗是否足够
 
-## v2 AI 聊天（P1，方案见 docs/plan-v1.md 第六节）
+## v2 AI 聊天（P1，排布与方案详见 docs/roadmap.md §2）
 
-- [ ] 阶段 1 · 网页聊天：WiFi + WebServer 局域网页；LLM API（OpenAI 兼容格式）；返回 JSON {reply, emotion}；emotion → face.setExpression()；API key 存 NVS + 网页配置页；断网降级回离线模式
-- [ ] 阶段 2 · 语音：INMP441 + MAX98357A + 小喇叭（GPIO 12/13/14/16/17/18 已预留）；先做按键说话，ASR/TTS 走云端；后加 ESP-SR 唤醒词
-- [ ] 阶段 3 · 情绪回流：聊天情绪 → Stats.mood 增减；对话结合数值状态（"我饿了"它知道饱食度）
+- [ ] v2.0 · 网页聊天：WiFi + WebServer 局域网页；LLM API（OpenAI 兼容格式）；返回 JSON {reply, emotion}；emotion → face.setExpression()；API key 存 NVS + 网页配置页；断网降级回离线模式
+- [ ] v1.2 · 体验优化包（穿插）：个性动画库 / Buzzer 音符序列音效 / RGB gamma 校正
+- [ ] v2.1 · 语音：INMP441 + MAX98357A + 小喇叭（GPIO 12/13/14/16/17/18 已预留）；长按抚摸键说话；ASR/TTS 首选小智服务端协议；思考动画掩盖延迟
+- [ ] v2.2 · 唤醒词与情绪回流：ESP-SR 本地唤醒；LLM 输出 mood_delta → Stats；最近 N 轮对话记忆；状态感知回答
+- [ ] 横切：GitHub Actions CI（zig 单测 + pio build）、Face 渲染单测、版本规范（semver + tag）
 - [ ] 选型核对：下单前查 SiliconFlow 现价（2026 国产 API 涨价趋势）
 
 ## 文档与工程（P2）
