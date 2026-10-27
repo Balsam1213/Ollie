@@ -33,10 +33,13 @@
 // ===== 按键 =====
 #define DEBOUNCE_MS 30
 
-// ===== 光敏（阈值按 M5 串口标定后修改） =====
-#define LIGHT_DARK_ADC 800   // 低于此值 = 暗
-#define LIGHT_BRIGHT_ADC 2000 // 高于此值 = 亮（与上面构成迟滞，中间维持原状态）
-#define DARK_CONFIRM_S 10    // 持续变暗 10 秒才入睡
+// ===== 光敏（两种模块二选一，见 README 第六节标定） =====
+#define LIGHT_USE_DO 1        // 1: 3 针 LM393 模块只有 DO（数字）；0: 4 针模块用 AO（模拟）
+#define LIGHT_DO_DARK_LEVEL 1 // DO 模式"暗"的电平：遮光时串口打印 DO=1 填 1，打印 DO=0 填 0
+#define LIGHT_DARK_ADC 800   // AO 模式：低于此值 = 暗
+#define LIGHT_BRIGHT_ADC 2000 // AO 模式：高于此值 = 亮（与上面构成迟滞，中间维持原状态）
+#define DARK_CONFIRM_S 10    // 持续变暗 10 秒才入睡（两种模式共用）
+#define WAKE_CONFIRM_S 2     // DO 模式专属：持续变亮 2 秒才醒（补偿其无硬件迟滞）
 
 // ===== 数值 =====
 #define STAT_MIN 0

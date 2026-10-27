@@ -144,11 +144,11 @@ static void test_buttons_debounce() {
 
 // ============ 3. LightSensor ============
 static void test_light_sensor() {
-    std::printf("[test] LightSensor 迟滞与持续变暗 10 秒确认\n");
+    std::printf("[test] LightSensor AO 模式：迟滞与持续变暗 10 秒确认\n");
     resetTime();
     setLight(3000);
     LightSensor ls;
-    ls.begin(0); // begin 时播种均值
+    ls.begin(false, 0); // AO 模式，begin 时播种均值
     CHECK(ls.update(500) == LightEvent::None); // 亮，无事
 
     // —— 全黑：均值滑落 → 判暗 → 满 10 秒才入睡 ——
@@ -196,6 +196,81 @@ static void test_light_sensor() {
     setLight(4095);
     CHECK(ls.update(t + 2000) == LightEvent::None);
     CHECK(ls.update(t + 2500) == LightEvent::None);
+}
+
+static void test_light_sensor_digital() {
+    std::printf("[test] LightSensor DO 模式（LM393 三针）：极性映射 / 变亮确认 / 抖动过滤\n");
+    resetTime();
+    // 极性按 Config.h 的 LIGHT_DO_DARK_LEVEL = 1：HIGH = 暗，LOW = 亮
+    g_pinLevel[PIN_LIGHT_AO] = HIGH; // 开机即处于暗态
+    LightSensor ls;
+    ls.begin(true, 0);
+
+    // —— 暗态持续 10s → SleepTime（一次） ——
+    LightEvent ev = LightEvent::None;
+    uint32_t t = 500;
+    while (t <= 12000 && ev == LightEvent::None) {
+        ev = ls.update(t);
+        t += 500;
+    }
+    CHECK(ev == LightEvent::SleepTime);
+    CHECK(t - 500 <= 11000); // 在确认期刚满时触发
+    CHECK(ls.update(t) == LightEvent::None); // 同一轮暗期不重复发
+
+    // —— 临界抖动（HIGH/LOW 交替）：连续一致滤波挡住，无任何事件 ——
+    for (int i = 0; i < 10; i++) {
+        g_pinLevel[PIN_LIGHT_AO] = (i % 2 == 0) ? LOW : HIGH;
+        CHECK(ls.update(t) == LightEvent::None);
+        t += 500;
+    }
+
+    // —— 变亮：需持续 WAKE_CONFIRM_S(2s) 才醒 ——
+    g_pinLevel[PIN_LIGHT_AO] = LOW;
+    uint32_t tAdopt = 0;
+    ev = LightEvent::None;
+    while (t < 60000 && ev == LightEvent::None) {
+        ev = ls.update(t);
+        if (ev == LightEvent::None && tAdopt == 0 && ls.raw() == (uint16_t)LOW)
+            tAdopt = t; // 首次采纳亮电平
+        t += 500;
+    }
+    CHECK(ev == LightEvent::WakeTime);
+    CHECK(t - 500 - tAdopt >= (uint32_t)WAKE_CONFIRM_S * 1000ul); // 确认期已满才醒
+    CHECK(ls.raw() == (uint16_t)LOW);
+
+    // —— 唤醒后再变暗：10s 后应能再次入睡（sleepFired 已在唤醒时复位） ——
+    g_pinLevel[PIN_LIGHT_AO] = HIGH;
+    ev = LightEvent::None;
+    while (t < 30000 && ev == LightEvent::None) { ev = ls.update(t); t += 500; }
+    CHECK(ev == LightEvent::SleepTime); // 复位生效，昼夜循环可反复进行
+    t += 500;
+    CHECK(ls.update(t) == LightEvent::None);
+
+    g_pinLevel[PIN_LIGHT_AO] = LOW;           // 变亮，先确认 1 秒
+    CHECK(ls.update(t) == LightEvent::None);  // 电平切换拍：只记录不采纳
+    t += 500;
+    CHECK(ls.update(t) == LightEvent::None);  // 采纳亮，确认起点
+    t += 500;
+    CHECK(ls.raw() == (uint16_t)LOW);
+    CHECK(ls.update(t) == LightEvent::None);  // 确认 0.5s
+    t += 500;
+    CHECK(ls.update(t) == LightEvent::None);  // 确认 1.0s（不足 2s，没醒）
+    t += 500;
+
+    g_pinLevel[PIN_LIGHT_AO] = HIGH;          // 确认中途抖回暗
+    CHECK(ls.update(t) == LightEvent::None);  // 电平切换拍：不采纳、不清计时
+    t += 500;
+    CHECK(ls.update(t) == LightEvent::None);  // 采纳暗：亮确认计时清零，未醒
+    t += 500;
+    CHECK(ls.raw() == (uint16_t)HIGH);
+
+    g_pinLevel[PIN_LIGHT_AO] = LOW;           // 再持续亮 2s
+    ev = LightEvent::None;
+    while (t < 150000 && ev == LightEvent::None) {
+        ev = ls.update(t);
+        t += 500;
+    }
+    CHECK(ev == LightEvent::WakeTime);        // 抖动后依然能正常醒来
 }
 
 // ============ 4. PetState ============
@@ -326,6 +401,7 @@ int main() {
     test_stats_persistence();
     test_buttons_debounce();
     test_light_sensor();
+    test_light_sensor_digital();
     test_petstate();
     test_moodlight();
     std::printf("\n共 %d 项断言，失败 %d → %s\n", checks, failures, failures ? "FAILED" : "ALL PASS");

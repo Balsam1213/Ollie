@@ -33,6 +33,7 @@
 
 ## 已知差异与技巧
 
+- **光敏 DO 模式**：固件默认 `LIGHT_USE_DO=1`（实机 3 针模块），但 Wokwi 的光敏部件在仿真里 **AO 输出对滑杆响应可靠、DO 可能不响应**（已知 issue）。仿真验证昼夜请临时把 Config.h 的 `LIGHT_USE_DO` 改 `0`（diagram.json 已接 AO）；实机 DO 模块把橙线改接 DO、`LIGHT_USE_DO` 保持 1 即可
 - 板载 RGB 灯在仿真图里就是板子右下角那颗彩色 LED（对应 GPIO48，实机同款）
 - 蜂鸣器音量可在 diagram.json 的 `bz` attrs 里调 `volume`（0.01–1.0）；没声音先检查浏览器是否静音
 - 光敏的 light 滑杆从左到右 = 从暗到亮；拖动时看串口 ADC 打印值，可以顺便给实机标定 `LIGHT_DARK_ADC` / `LIGHT_BRIGHT_ADC`

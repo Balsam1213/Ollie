@@ -53,7 +53,7 @@ void setup() {
     buttons.begin(now);
     stats.begin();
     moodLight.begin(now);
-    lightSensor.begin(now);
+    lightSensor.begin(LIGHT_USE_DO != 0, now);
     if (!face.begin()) {
         LOGF("[error] OLED 初始化失败：检查接线/地址(0x3C)，3 秒后继续运行\n");
         delay(3000);
@@ -87,9 +87,15 @@ void loop() {
     if (now - tLight >= 500) {
         tLight = now;
 #if LIGHT_CALIBRATE
-        // 光敏标定模式：对照串口值改 Config.h 的两个阈值
+#if LIGHT_USE_DO
+        // DO 模块标定：遮光/照亮各看几次，"暗"时打印的电平填进 LIGHT_DO_DARK_LEVEL
+        LOGF("[light-cal] DO=%u（暗电平应为 %u）\n",
+             lightSensor.raw(), (unsigned)LIGHT_DO_DARK_LEVEL);
+#else
+        // AO 模块标定：对照串口值改 Config.h 的两个 ADC 阈值
         LOGF("[light-cal] ADC=%u（暗<%u 亮>%u）\n",
              lightSensor.raw(), LIGHT_DARK_ADC, LIGHT_BRIGHT_ADC);
+#endif
 #endif
         LightEvent ev = lightSensor.update(now);
         if (ev == LightEvent::SleepTime)
