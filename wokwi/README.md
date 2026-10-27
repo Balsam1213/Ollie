@@ -11,7 +11,7 @@
 2. 在左侧项目文件区：
    - 删除模板自带的 `sketch.ino`，用"+"新建 `Ollie.ino`，把仓库根目录的 `Ollie.ino` 内容贴进去
    - 依次新建并粘贴以下文件（**全部平铺在项目根，不要建子文件夹**）：
-     `Config.h`、`Stats.h`、`Stats.cpp`、`Buttons.h`、`Buttons.cpp`、`Buzzer.h`、`Buzzer.cpp`、`LightSensor.h`、`LightSensor.cpp`、`Face.h`、`Face.cpp`、`MoodLight.h`、`MoodLight.cpp`、`PetState.h`、`PetState.cpp`
+     `Config.h`、`ChatLogic.h`、`ChatLogic.cpp`、`Stats.h`、`Stats.cpp`、`Buttons.h`、`Buttons.cpp`、`Buzzer.h`、`Buzzer.cpp`、`LightSensor.h`、`LightSensor.cpp`、`Face.h`、`Face.cpp`、`MoodLight.h`、`MoodLight.cpp`、`PetState.h`、`PetState.cpp`、`NetConfig.h`、`NetConfig.cpp`、`LLMClient.h`、`LLMClient.cpp`、`WebChat.h`、`WebChat.cpp`
 3. 新建 `diagram.json`，粘贴本目录 [diagram.json](diagram.json) 的内容
    - 若编辑器报板卡 type 不认识，以新建项目模板 diagram.json 里的板卡行为准，只替换其余 parts 和 connections
    - 若某根线没接上（引脚名不匹配），鼠标悬停引脚可查看名称，改对应字符串即可
@@ -33,6 +33,7 @@
 
 ## 已知差异与技巧
 
+- **v2.0 联网功能**：Wokwi 需要开启 IoT 网关（浏览器弹窗授权）才能仿真 WiFi，且聊天 E2E 依赖真实 API 网络，未在仿真中验证；仿真主要看离线玩法逻辑。WiFi 相关代码已通过编译 + 逻辑单测覆盖（ChatLogic 100%）
 - **光敏 DO 模式**：固件默认 `LIGHT_USE_DO=1`（实机 3 针模块），但 Wokwi 的光敏部件在仿真里 **AO 输出对滑杆响应可靠、DO 可能不响应**（已知 issue）。仿真验证昼夜请临时把 Config.h 的 `LIGHT_USE_DO` 改 `0`（diagram.json 已接 AO）；实机 DO 模块把橙线改接 DO、`LIGHT_USE_DO` 保持 1 即可
 - 板载 RGB 灯在仿真图里就是板子右下角那颗彩色 LED（对应 GPIO48，实机同款）
 - 蜂鸣器音量可在 diagram.json 的 `bz` attrs 里调 `volume`（0.01–1.0）；没声音先检查浏览器是否静音

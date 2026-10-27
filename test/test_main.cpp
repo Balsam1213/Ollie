@@ -16,6 +16,7 @@
 #include "Face.h"
 #include "MoodLight.h"
 #include "PetState.h"
+#include "ChatLogic.h"
 #include <cstdio>
 
 // ---- 桩的全局定义 ----
@@ -395,6 +396,71 @@ static void test_moodlight() {
     CHECK(g_rgb[0] == LED_MAX);
 }
 
+// ============ 6. ChatLogic（v2.0 纯逻辑） ============
+static void test_chatlogic() {
+    using namespace chat;
+    std::printf("[test] ChatLogic：JSON 转义 / content 提取 / 回复解析 / 情绪映射 / prompt\n");
+
+    // —— jsonEscape ——
+    CHECK(jsonEscape("a\"b\\c") == "a\\\"b\\\\c");
+    CHECK(jsonEscape("行\n尾") == "行\\n尾");
+    CHECK(jsonEscape("中文") == "中文"); // UTF-8 原样透传
+    CHECK(jsonEscape(std::string(1, '\x01')) == "\\u0001"); // 控制字符
+
+    // —— jsonUnescape（含 \u 编码与代理对） ——
+    CHECK(jsonUnescape("a\\\"b\\\\c") == "a\"b\\c");
+    CHECK(jsonUnescape("\\u4f60\\u597d") == "你好");
+    CHECK(jsonUnescape("\\ud83d\\ude00") == "\xF0\x9F\x98\x80"); // 😀 代理对→4字节UTF-8
+    CHECK(jsonUnescape(jsonEscape("往返\"测\\试\n")) == "往返\"测\\试\n"); // roundtrip
+
+    // —— findStringValue：key 不会误命中字段值内部的 "key" 文本 ——
+    std::string v;
+    CHECK(findStringValue("{\"a\":\"有 \\\"content\\\" 字样\",\"content\":\"真身\"}", "content", v));
+    CHECK(v == "真身");
+    CHECK(findStringValue("{\"reply\":\"hi\"}", "reply", v) && v == "hi");
+    CHECK(!findStringValue("{\"other\":1}", "reply", v));
+
+    // —— extractContent：OpenAI 兼容响应 ——
+    std::string api = "{\"id\":\"x\",\"choices\":[{\"message\":{\"role\":\"assistant\","
+                      "\"content\":\"{\\\"reply\\\":\\\"你好呀\\\",\\\"emotion\\\":\\\"happy\\\"}\"}}]}";
+    std::string content;
+    CHECK(extractContent(api, content));
+    CHECK(content == "{\"reply\":\"你好呀\",\"emotion\":\"happy\"}");
+
+    // —— parseReply ——
+    std::string reply; chat::Emotion emo = chat::Emotion::Calm;
+    CHECK(parseReply(content, reply, emo));
+    CHECK(reply == "你好呀");
+    CHECK(emo == chat::Emotion::Happy);
+    CHECK(parseReply("```json\n{\"reply\":\"嗯\",\"emotion\":\"sleepy\"}\n```", reply, emo));
+    CHECK(reply == "嗯" && emo == chat::Emotion::Sleepy);
+    CHECK(parseReply("我不太明白你的意思", reply, emo)); // 非 JSON 兜底：整段当回复
+    CHECK(reply == "我不太明白你的意思" && emo == chat::Emotion::Calm);
+    CHECK(!parseReply("", reply, emo));
+    CHECK(parseReply("{\"emotion\":\"hungry\"}", reply, emo) == false); // 缺 reply
+
+    // —— emotionFromName ——
+    CHECK(emotionFromName("happy") == chat::Emotion::Happy);
+    CHECK(emotionFromName("hungry") == chat::Emotion::Hungry);
+    CHECK(emotionFromName("sleepy") == chat::Emotion::Sleepy);
+    CHECK(emotionFromName("whatever") == chat::Emotion::Calm);
+
+    // —— systemPrompt：人设 + 数值注入 + 低状态提示 ——
+    std::string p = systemPrompt(20, 80, 10);
+    CHECK(p.find("饱食度 20/100") != std::string::npos);
+    CHECK(p.find("精力 10/100") != std::string::npos);
+    CHECK(p.find("很饿") != std::string::npos);
+    CHECK(p.find("很困") != std::string::npos);
+    CHECK(p.find("Ollie") != std::string::npos);
+    CHECK(systemPrompt(90, 90, 90).find("很饿") == std::string::npos);
+
+    // —— buildRequestBody：模型名/转义后的消息都在，system 在前 ——
+    std::string body = buildRequestBody("test-model", 50, 60, 70, "你\"好\"");
+    CHECK(body.find("\"model\":\"test-model\"") != std::string::npos);
+    CHECK(body.find("你\\\"好\\\"") != std::string::npos);
+    CHECK(body.find("\"role\":\"system\"") < body.find("\"role\":\"user\""));
+}
+
 int main() {
     std::printf("=== Ollie 逻辑单测 ===\n");
     test_stats_decay_and_clamp();
@@ -404,6 +470,7 @@ int main() {
     test_light_sensor_digital();
     test_petstate();
     test_moodlight();
+    test_chatlogic();
     std::printf("\n共 %d 项断言，失败 %d → %s\n", checks, failures, failures ? "FAILED" : "ALL PASS");
     return failures ? 1 : 0;
 }

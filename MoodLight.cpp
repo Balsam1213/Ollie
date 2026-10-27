@@ -24,13 +24,22 @@ void MoodLight::happyFlash(uint32_t now) {
     happyUntil = now + HAPPY_HOLD_MS;
 }
 
+void MoodLight::netLostFlash(uint32_t now) {
+    netLostUntil = now + 2500;
+}
+
 void MoodLight::targetColor(uint32_t now, uint8_t& r, uint8_t& g, uint8_t& b) const {
     // 呼吸：在 lo..hi 之间以 period 为周期缓慢起伏
     auto breath = [](uint32_t t, uint32_t period, float lo, float hi) {
         return lo + (hi - lo) * (0.5f + 0.5f * sinf(6.2831853f * t / (float)period));
     };
 
-    if (now < happyUntil) { // 互动后：粉色快速脉动
+    if (now < netLostUntil) { // 断网提示：蓝色快速脉动，盖过常规颜色
+        float s = 0.15f + 0.45f * (0.5f + 0.5f * sinf(now / 90.0f));
+        r = 0;
+        g = (uint8_t)(60 * s);
+        b = (uint8_t)(255 * s);
+    } else if (now < happyUntil) { // 互动后：粉色快速脉动
         float s = 0.5f + 0.5f * sinf(now / 120.0f);
         r = 255;
         g = (uint8_t)(80 * s);

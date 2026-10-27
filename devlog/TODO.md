@@ -22,11 +22,16 @@
 
 ## v2 AI 聊天（P1，排布与方案详见 docs/roadmap.md §2）
 
-- [ ] v2.0 · 网页聊天：WiFi + WebServer 局域网页；LLM API（OpenAI 兼容格式）；返回 JSON {reply, emotion}；emotion → face.setExpression()；API key 存 NVS + 网页配置页；断网降级回离线模式
+- [~] v2.0 · 网页聊天：**代码已完成**（NetConfig/LLMClient/WebChat/ChatLogic，单测 165 项全过，固件编译 RAM 16.2%/Flash 40.3%），剩联网实测：
+  - [ ] 配网流程：首次上电连 `Ollie-Setup` 热点，配置页保存后自动重启连 WiFi
+  - [ ] 手机访问 http://ollie.local 打字聊天，回复 ≤2s、表情随情绪变
+  - [ ] 错误路径：Key 填错（接口返回 401 提示）、消息中途断网、连发两条（409 提示）
+  - [ ] 断网降级：拔路由器回离线模式 + 蓝闪，恢复后聊天自动可用
+  - [ ] 选定正式用的模型/服务并在设置页固化（默认预填 DeepSeek）
 - [ ] v1.2 · 体验优化包（穿插）：个性动画库 / Buzzer 音符序列音效 / RGB gamma 校正
 - [ ] v2.1 · 语音：INMP441 + MAX98357A + 小喇叭（GPIO 12/13/14/16/17/18 已预留）；长按抚摸键说话；ASR/TTS 首选小智服务端协议；思考动画掩盖延迟
 - [ ] v2.2 · 唤醒词与情绪回流：ESP-SR 本地唤醒；LLM 输出 mood_delta → Stats；最近 N 轮对话记忆；状态感知回答
-- [ ] 横切：GitHub Actions CI（zig 单测 + pio build）、Face 渲染单测、版本规范（semver + tag）
+- [ ] 横切：GitHub Actions CI（zig 单测 + pio build）、Face 渲染单测、版本规范（semver + tag；已加 OLLIE_VERSION 宏）
 - [ ] 选型核对：下单前查 SiliconFlow 现价（2026 国产 API 涨价趋势）
 
 ## 文档与工程（P2）

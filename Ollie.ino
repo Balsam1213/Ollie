@@ -11,6 +11,7 @@
  * 整体设计见 docs/plan-v1.md
  */
 #include <Wire.h>
+#include <WiFi.h>
 #include "Config.h"
 #include "Stats.h"
 #include "Buttons.h"
@@ -19,6 +20,9 @@
 #include "Face.h"
 #include "MoodLight.h"
 #include "PetState.h"
+#include "NetConfig.h"
+#include "LLMClient.h"
+#include "WebChat.h"
 
 Stats       stats;
 Face        face;
@@ -27,11 +31,15 @@ Buttons     buttons;
 LightSensor lightSensor;
 MoodLight   moodLight;
 PetState    pet;
+NetConfig   net;   // v2: WiFi/凭据
+LLMClient   llm;   // v2: LLM 调用（独立任务）
+WebChat     web;   // v2: 网页聊天
+bool        netWasConnected = false;
 
 void setup() {
     Serial.begin(115200);
     delay(200);
-    LOGF("\n=== Ollie v1 ===\n");
+    LOGF("\n=== Ollie %s ===\n", OLLIE_VERSION);
 #ifdef DEBUG_FAST_DECAY
     LOGF("[warn] DEBUG_FAST_DECAY 开启：数值衰减为 1点/秒（仅调试）\n");
 #endif
@@ -60,6 +68,11 @@ void setup() {
     }
     pet.begin(&stats, &face, &buzzer, &moodLight, now);
 
+    net.begin();               // v2: 读凭据，没配过网则开配置热点
+    llm.begin(&face);          // v2: 聊天任务
+    web.begin(&llm, &net, &stats);
+    LOGF("[net] 状态：%s\n", net.hasCreds() ? "有凭据，尝试连接" : "未配置，等待配网");
+
     const StatsData& d = stats.data();
     LOGF("[boot] 饱食=%u 心情=%u 精力=%u\n", d.food, d.mood, d.energy);
 }
@@ -73,10 +86,12 @@ void loop() {
         face.update(now);
         buzzer.update(now);
         moodLight.update(now);
+        llm.poll(now); // v2: 聊天结果 → 表情
     }
 
     if (now - tBtn >= 20) {
         tBtn = now;
+        web.update(now); // v2: 网页服务（含 handleClient）
         ButtonEvent ev = buttons.update(now);
         if (ev != ButtonEvent::None) {
             LOGF("[btn] %s\n", ev == ButtonEvent::Feed ? "喂食" : "抚摸");
@@ -86,6 +101,21 @@ void loop() {
 
     if (now - tLight >= 500) {
         tLight = now;
+        net.update(now); // v2: WiFi 状态机
+        // 联网状态变化编排：起停网页服务 + 断网蓝闪提示
+        bool c = net.connected();
+        if (c != netWasConnected) {
+            netWasConnected = c;
+            if (c) {
+                web.start();
+                LOGF("[net] 网页聊天就绪：http://ollie.local （或 %s）\n",
+                     WiFi.localIP().toString().c_str());
+            } else {
+                web.stop();
+                moodLight.netLostFlash(now);
+                LOGF("[net] 离线模式：Ollie 回到纯离线玩法\n");
+            }
+        }
 #if LIGHT_CALIBRATE
 #if LIGHT_USE_DO
         // DO 模块标定：遮光/照亮各看几次，"暗"时打印的电平填进 LIGHT_DO_DARK_LEVEL

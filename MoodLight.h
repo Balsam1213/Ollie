@@ -13,6 +13,7 @@ public:
     void begin(uint32_t now);
     void setMood(uint8_t moodPercent, bool sleeping); // 每轮结算后刷新
     void happyFlash(uint32_t now);                    // 互动后 3 秒粉色
+    void netLostFlash(uint32_t now);                  // v2: 断网提示，2.5 秒蓝色快闪
     void update(uint32_t now);                        // 调度器每帧调用
 
 private:
@@ -21,5 +22,6 @@ private:
     uint8_t mood = 80;
     bool sleeping = false;
     uint32_t happyUntil = 0;
+    uint32_t netLostUntil = 0;
     int curR = 0, curG = 0, curB = 0; // 当前输出，用于渐变
 };

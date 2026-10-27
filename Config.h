@@ -69,6 +69,20 @@
 // ===== 心情灯 =====
 #define LED_MAX 40 // WS2812 亮度封顶（/255），防夜间刺眼
 
+// ===== v2.0 联网（网页聊天） =====
+#define OLLIE_VERSION "2.0.0-dev"
+#define AP_SSID "Ollie-Setup"     // 配网热点名（无 WiFi 凭据时自动开启）
+#define AP_PASS "ollie12345"      // 热点密码，需 ≥8 位
+#define WIFI_RETRY_MS 15000       // STA 断开后重连间隔
+#define WIFI_CONNECT_TIMEOUT_MS 25000 // 单次连接超时，超时按失败计
+#define PORTAL_FAILS_BEFORE_AP 2  // 连续失败几次后也开配网页（密码改错的补救入口）
+#define CHAT_TIMEOUT_MS 12000     // 一次 LLM 请求总超时
+#define CHAT_TASK_STACK 12288     // 聊天任务栈（TLS 需要较大栈）
+#define CHAT_HOLD_MS 4000         // 聊天情绪表情保持时长
+#define LLM_DEFAULT_HOST "api.deepseek.com"      // 设置页可改，OpenAI 兼容端点
+#define LLM_DEFAULT_PATH "/chat/completions"
+#define LLM_DEFAULT_MODEL "deepseek-chat"
+
 // ===== 附加功能开关（0/1，按需打开） =====
 #define BOOT_I2C_SCAN 0   // 1: 上电只跑 I2C 总线扫描并打印（M1 排查 OLED 地址/接线用）
 #define LIGHT_CALIBRATE 0 // 1: 每 500ms 打印光敏 ADC 均值（M5 标定阈值用，串口看数值）

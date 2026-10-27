@@ -35,12 +35,16 @@
 
 | 模块 | 职责 | 关键约束 |
 |---|---|---|
-| Ollie.ino | 入口 + 毫秒调度器 | 全非阻塞；调度周期 33ms 渲染 / 20ms 按键 / 500ms 光敏 / 60s 结算（DEBUG 时 1s） |
+| Ollie.ino | 入口 + 毫秒调度器 + 联网状态编排 | 全非阻塞；调度周期 33ms 渲染 / 20ms 按键+网页 / 500ms 光敏+WiFi / 60s 结算（DEBUG 时 1s） |
 | Config.h | 所有引脚/阈值/节奏/开关 | 项目唯一的"魔法数字"集中地 |
 | PetState | 醒/睡状态机、表情优先级、事件分发 | 唯一允许改 asleep 状态的地方 |
 | Stats | 三项数值 + NVS 存档 | 数值读写只经此类；有变化才落盘 |
-| Face | 表情绘制与动画 | 对外仅 `setBase` / `setExpression(Emotion, holdMs)`，**与触发源解耦（v2 预留）** |
+| Face | 表情绘制与动画 | 对外仅 `setBase` / `setExpression(Emotion, holdMs)`，**与触发源解耦（v2 已兑现）** |
 | Buttons / Buzzer / LightSensor / MoodLight | 输入输出外设 | 各自封装消抖/时序/迟滞/渐变，不越界 |
+| ChatLogic | v2 聊天纯逻辑：prompt/JSON 转义与提取/回复解析/情绪映射 | **零 Arduino 依赖**，PC 单测与固件共用 |
+| NetConfig | v2：WiFi 连接状态机、配网热点门户、mDNS、凭据 NVS | 不持有网页服务；状态变化由 Ollie.ino 编排 |
+| LLMClient | v2：LLM 调用 | FreeRTOS 任务（core 0）跑 HTTPS，渲染不受 1–3s 延迟影响；结果带序号保留 |
+| WebChat | v2：局域网聊天页/设置页/三个 API | 异步应答（POST 立即 202 + 轮询取结果），handler 不做长阻塞 |
 
 ### 2.2 核心规则
 
@@ -51,13 +55,15 @@
   - DO 模式（3 针 LM393，无硬件迟滞）：连续两次电平一致才采纳 + 持续变暗 10s 确认入睡 + 持续变亮 2s（`WAKE_CONFIRM_S`）才醒；极性由 `LIGHT_DO_DARK_LEVEL` 标定
 - **渲染**：30fps 限帧；几何初始值（眼中心 (40,22)/(88,22) 24×28 圆角矩形、嘴中心 (64,46)）在 Face.cpp 顶部；眨眼 180ms 三段；防灼伤每 30s 整脸漂移 1px；睡眠 `display.dim(true)`
 
-## 3. 性能与实测基线（2026-10-25，PlatformIO release 构建）
+## 3. 性能与实测基线（2026-10-28，含 v2.0 联网模块，PlatformIO release 构建）
 
 | 指标 | 实测 | 预算 |
 |---|---|---|
-| RAM | 7.6%（24,740 / 327,680 B） | <60% |
-| Flash | 13.0%（434,479 / 3,342,336 B） | <50% |
-| 帧率 | 30fps（全帧刷新 I2C 400kHz ≈23ms） | ≥25fps |
+| RAM | 16.2%（53,068 / 327,680 B） | <60% |
+| Flash | 40.3%（1,345,734 / 3,342,336 B） | <50% |
+| 帧率 | 30fps（全帧刷新 I2C 400kHz ≈23ms；聊天走独立任务不占帧） | ≥25fps |
+
+Flash 增长说明：v1 基线 13% → v2.0 后 40%，增量来自 WiFi/TLS 协议栈（约 900KB），属预期。
 
 ## 4. 依赖与工具链（验证过的版本组合）
 

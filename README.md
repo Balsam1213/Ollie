@@ -215,7 +215,23 @@ py -m platformio device monitor   # 串口日志 115200
 
 ---
 
-## 十、不接硬件先玩（Wokwi 在线仿真）
+## 十、网页聊天（v2.0，已内置）
+
+Ollie 现在带联网聊天能力，**不配置也完全不影响离线玩法**（断网自动回纯离线模式，心情灯蓝闪一次提示）。
+
+**首次配置（5 分钟）**：
+
+1. 给 Ollie 上电，它会开出热点 **`Ollie-Setup`**（密码 `ollie12345`）
+2. 手机连这个热点，会自动弹出配置页（没弹就浏览器打开 `http://192.168.4.1`）
+3. 填家里 WiFi 的名称密码 + **大模型 API Key**（OpenAI 兼容接口，默认预填 DeepSeek 的地址，用其他家改"接口地址"即可），保存——Ollie 自动重启连网
+4. 之后用同一 WiFi 的手机浏览器打开 **`http://ollie.local`** 就能打字聊天
+5. 想换 Key/换模型/改 WiFi：聊天页右上角"设置"
+
+**行为说明**：回复通过大模型生成，返回的情绪（happy/calm/hungry/sleepy）会直接驱动 OLED 表情；服务异常或断网时聊天不可用，Ollie 自动回到离线宠物模式，来电自动恢复。API Key 只存在 Ollie 本机（NVS），不进代码仓库。
+
+> 联网功能需实机验证（仿真器对 WiFi 支持有限）；验证要点见 devlog/TODO.md v2.0 组。
+
+## 十一、不接硬件先玩（Wokwi 在线仿真）
 
 硬件没到也能在浏览器里跑完整逻辑：按 [wokwi/README.md](wokwi/README.md) 把项目文件贴进 [Wokwi](https://wokwi.com/projects/new/esp32-s3) 即可，引脚与实机完全一致。已做过六项仿真验证（表情/按键/睡眠/醒来）。
 
@@ -238,6 +254,10 @@ Buttons.h/.cpp       消抖按键
 LightSensor.h/.cpp   光敏采样 + 昼夜判定
 Buzzer.h/.cpp        蜂鸣器
 MoodLight.h/.cpp     WS2812 心情灯
+ChatLogic.h/.cpp     v2 聊天纯逻辑：prompt/JSON 解析/情绪映射（PC 单测覆盖）
+NetConfig.h/.cpp     v2：WiFi 状态机 + 配网热点门户
+LLMClient.h/.cpp     v2：LLM 调用（独立任务跑 HTTPS，不阻塞渲染）
+WebChat.h/.cpp       v2：局域网聊天页/设置页/API
 platformio.ini       PlatformIO 配置
 test/                本地逻辑单测
 wokwi/               Wokwi 在线仿真配置
