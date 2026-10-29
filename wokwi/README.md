@@ -11,7 +11,7 @@
 2. 在左侧项目文件区：
    - 删除模板自带的 `sketch.ino`，用"+"新建 `Ollie.ino`，把仓库根目录的 `Ollie.ino` 内容贴进去
    - 依次新建并粘贴以下文件（**全部平铺在项目根，不要建子文件夹**）：
-     `Config.h`、`ChatLogic.h`、`ChatLogic.cpp`、`Stats.h`、`Stats.cpp`、`Buttons.h`、`Buttons.cpp`、`Buzzer.h`、`Buzzer.cpp`、`LightSensor.h`、`LightSensor.cpp`、`Face.h`、`Face.cpp`、`MoodLight.h`、`MoodLight.cpp`、`PetState.h`、`PetState.cpp`、`NetConfig.h`、`NetConfig.cpp`、`LLMClient.h`、`LLMClient.cpp`、`WebChat.h`、`WebChat.cpp`
+     `Config.h`、`DialogLines.h`、`DialogFont.h`、`Dialog.h`、`Dialog.cpp`、`ChatLogic.h`、`ChatLogic.cpp`、`Stats.h`、`Stats.cpp`、`Buttons.h`、`Buttons.cpp`、`Buzzer.h`、`Buzzer.cpp`、`LightSensor.h`、`LightSensor.cpp`、`Face.h`、`Face.cpp`、`MoodLight.h`、`MoodLight.cpp`、`PetState.h`、`PetState.cpp`、`NetConfig.h`、`NetConfig.cpp`、`LLMClient.h`、`LLMClient.cpp`、`WebChat.h`、`WebChat.cpp`
 3. 新建 `diagram.json`，粘贴本目录 [diagram.json](diagram.json) 的内容
    - 若编辑器报板卡 type 不认识，以新建项目模板 diagram.json 里的板卡行为准，只替换其余 parts 和 connections
    - 若某根线没接上（引脚名不匹配），鼠标悬停引脚可查看名称，改对应字符串即可

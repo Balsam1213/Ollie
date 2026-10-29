@@ -34,6 +34,8 @@ ESP32-S3 桌面电子宠物：OLED 上的一张脸 + 五表情 + 三数值养成
 
 **加一种表情**：`Face.h` 的 `Emotion` 枚举加项 → Face.cpp 渲染 switch 加分支 + 表情参数表加行 → PetState 优先级链插入 → Wokwi 看观感 → 若可被数值触发，更新 requirements FR-05。
 
+**加/改台词**：编辑 `DialogLines.h`（每句 ≤8 字，可含颜文字，别用英文双引号）→ `py tools/genfont.py` 重新生成字库 → `bash test/run_tests.sh`（自动校验每句长度）→ 编译烧录。Wokwi 里也能直接看效果。触发时机/间隔在 Config.h 的 DIALOG_* 常量。
+
 **调脸部观感**：只动 Face.cpp 顶部几何常量（眼位/尺寸/嘴弧），不用动逻辑；在 Wokwi 上调最快。
 
 **加外设**：先查 tech-spec §1.2 引脚表有没有空位、是否踩 v2 预留 → 新建模块 .h/.cpp（自封装时序）→ Ollie.ino 调度表加行 → 单测桩 + 仿真部件。

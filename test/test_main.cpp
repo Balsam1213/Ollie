@@ -17,6 +17,8 @@
 #include "MoodLight.h"
 #include "PetState.h"
 #include "ChatLogic.h"
+#include "Dialog.h"
+#include "DialogLines.h"
 #include <cstdio>
 
 // ---- 桩的全局定义 ----
@@ -33,6 +35,8 @@ extern Emotion g_lastOverride;
 extern uint32_t g_lastHold;
 extern int g_baseCalls;
 extern int g_overrideCalls;
+extern const char* g_lastDialog;
+extern int g_dialogCalls;
 
 static int failures = 0, checks = 0;
 #define CHECK(cond)                                                          \
@@ -51,6 +55,21 @@ static void idlePins() { // INPUT_PULLUP 空闲 = 高电平
 static void setLight(uint16_t v) { g_adc[PIN_LIGHT_AO] = v; }
 #define setFeed(v) (g_pinLevel[PIN_BTN_FEED] = (v))
 #define setPet(v) (g_pinLevel[PIN_BTN_PET] = (v))
+
+// 台词辅助：码点数 / 判断桩记录的台词指针是否属于某台词池
+static int cpCount(const char* s) {
+    int bytes = 0, cont = 0;
+    for (const unsigned char* p = (const unsigned char*)s; *p; p++) {
+        bytes++;
+        if ((*p & 0xC0) == 0x80) cont++;
+    }
+    return bytes - cont;
+}
+static bool inPool(const char* line, const char* const* pool, int n) {
+    for (int i = 0; i < n; i++)
+        if (strcmp(line, pool[i]) == 0) return true; // 内容比较（字面量跨编译单元不保证同址）
+    return false;
+}
 
 // ============ 1. Stats ============
 static void test_stats_decay_and_clamp() {
@@ -297,9 +316,12 @@ static void test_petstate() {
     CHECK(g_lastBase == Emotion::Calm); // 数值健康 → 平静
 
     // —— 入睡 ——
+    g_dialogCalls = 0;
     pet.onLight(LightEvent::SleepTime, 0);
     CHECK(pet.sleeping());
     CHECK(g_lastBase == Emotion::Sleeping);
+    CHECK(g_dialogCalls == 1); // 睡前一句晚安
+    CHECK(inPool(g_lastDialog, LINES_SLEEP, N_SLEEP));
     StatsData before = stats.data();
     pet.onSettle(60000); // 睡觉结算
     CHECK(stats.data().energy == before.energy + ENERGY_GAIN_SLEEP);
@@ -308,25 +330,33 @@ static void test_petstate() {
 
     // —— 睡着时按键无效（默认关彩蛋）——
     int oc = g_overrideCalls;
+    int dc = g_dialogCalls;
     before = stats.data();
     pet.onButton(ButtonEvent::Feed, 61000);
     pet.onButton(ButtonEvent::Pet, 61500);
     CHECK(g_overrideCalls == oc);
+    CHECK(g_dialogCalls == dc);
     CHECK(stats.data().food == before.food && stats.data().mood == before.mood);
 
-    // —— 醒来 → 平静 ——
+    // —— 醒来 → 平静 + 早安台词 ——
+    g_dialogCalls = 0;
     pet.onLight(LightEvent::WakeTime, 62000);
     CHECK(!pet.sleeping());
     CHECK(g_lastBase == Emotion::Calm);
+    CHECK(g_dialogCalls == 1);
+    CHECK(inPool(g_lastDialog, LINES_WAKE, N_WAKE));
 
-    // —— 喂食：数值 + 临时开心 3 秒 + 两声哔哔 ——
+    // —— 喂食：数值 + 先笑后说 + 两声哔哔 ——
     before = stats.data();
     g_lastTone = 0xFFFFFFFF;
+    g_dialogCalls = 0;
     pet.onButton(ButtonEvent::Feed, 63000);
     CHECK(stats.data().food == before.food + FEED_FOOD);
     CHECK(stats.data().mood == before.mood + FEED_MOOD);
     CHECK(g_lastOverride == Emotion::Happy);
-    CHECK(g_lastHold == HAPPY_HOLD_MS);
+    CHECK(g_lastHold == DIALOG_FEED_FACE_MS); // 先笑 1.4s，台词随后
+    CHECK(g_dialogCalls == 1);
+    CHECK(inPool(g_lastDialog, LINES_FEED, N_FEED));
     buzzer.update(63000);
     CHECK(g_lastTone == BEEP_FREQ); // 第一声
     buzzer.update(63000 + BEEP_MS + 10);
@@ -461,6 +491,88 @@ static void test_chatlogic() {
     CHECK(body.find("\"role\":\"system\"") < body.find("\"role\":\"user\""));
 }
 
+// ============ 7. Dialog（v1.2 台词） ============
+static void test_dialog_lines() {
+    std::printf("[test] 台词表合法性（逐句 ≤8 字非空）+ 真实字库查询 + 选句不重复\n");
+    struct PoolRef {
+        const char* const* lines;
+        int n;
+        const char* name;
+    };
+    PoolRef pools[] = {
+        {LINES_CALM, N_CALM, "CALM"},       {LINES_HUNGRY, N_HUNGRY, "HUNGRY"},
+        {LINES_SLEEPY, N_SLEEPY, "SLEEPY"}, {LINES_SAD, N_SAD, "SAD"},
+        {LINES_SLEEP, N_SLEEP, "SLEEP"},    {LINES_WAKE, N_WAKE, "WAKE"},
+        {LINES_FEED, N_FEED, "FEED"},       {LINES_PET, N_PET, "PET"},
+        {LINES_IDLE, N_IDLE, "IDLE"},
+    };
+    for (auto& p : pools) {
+        CHECK(p.n >= 1);
+        for (int i = 0; i < p.n; i++) {
+            int n = cpCount(p.lines[i]);
+            CHECK(n >= 1 && n <= DIALOG_MAX_CHARS); // 屏宽约束：8 字 × 12px
+        }
+    }
+
+    // —— 真实字库：台词字符可查、字形有墨 ——
+    CHECK(dialogfont::findGlyph(0x4ECA) != nullptr);  // 今（今天也要加油鸭）
+    CHECK(dialogfont::findGlyph(0x597D) != nullptr);  // 好
+    const dialogfont::Glyph* g = dialogfont::findGlyph(0x4ECA);
+    bool anyInk = false;
+    for (int y = 0; y < 12 && !anyInk; y++)
+        for (int x = 0; x < 12; x++)
+            if (g->bitmap[y * 2 + x / 8] & (0x80 >> (x % 8))) anyInk = true;
+    CHECK(anyInk);
+    CHECK(dialogfont::findGlyph(0xE000) == nullptr); // 私有区字符必不在字库
+
+    // —— pickIndex：永不连续重复 ——
+    CHECK(Dialog::pickIndex(0, 0) == 0);
+    CHECK(Dialog::pickIndex(1, 0) == 0);
+    for (int i = 0; i < 60; i++) {
+        uint8_t last = (uint8_t)(i % 3);
+        CHECK(Dialog::pickIndex(3, last) != last);
+    }
+}
+
+static void test_dialog_driver() {
+    std::printf("[test] Dialog 驱动器：事件台词 / 阈值跨越 / 冷却防刷屏\n");
+    resetTime();
+    Face face;
+    Dialog dlg;
+    dlg.begin(&face, 0);
+
+    // —— 事件台词必说，取自对应池 ——
+    g_dialogCalls = 0;
+    dlg.onFeed(1000);
+    CHECK(g_dialogCalls == 1);
+    CHECK(inPool(g_lastDialog, LINES_FEED, N_FEED));
+    dlg.onPet(2000);
+    CHECK(g_dialogCalls == 2);
+    CHECK(inPool(g_lastDialog, LINES_PET, N_PET));
+    dlg.onSleep(3000);
+    CHECK(inPool(g_lastDialog, LINES_SLEEP, N_SLEEP));
+    dlg.onWake(4000);
+    CHECK(inPool(g_lastDialog, LINES_WAKE, N_WAKE));
+
+    // —— 阈值跨越：饱食跌破 30 → 饥饿台词（60s < 最早闲聊 90s，无干扰） ——
+    StatsData prev{31, 80, 80}, now{29, 80, 80};
+    g_dialogCalls = 0;
+    dlg.onSettle(60000, now, prev, false);
+    CHECK(g_dialogCalls == 1);
+    CHECK(inPool(g_lastDialog, LINES_HUNGRY, N_HUNGRY));
+
+    // —— 未跨越 + 距上次台词仅 1s：不再说 ——
+    StatsData now2{28, 80, 80};
+    dlg.onSettle(61000, now2, now, false);
+    CHECK(g_dialogCalls == 1);
+
+    // —— 睡觉时不闲聊不撒娇（onSettle asleep=true 只报跨越） ——
+    g_dialogCalls = 0;
+    StatsData now3{28, 80, 90};
+    dlg.onSettle(300000, now3, now2, true);
+    CHECK(g_dialogCalls == 0); // 300s 处闲聊计时已过，但睡着必须安静
+}
+
 int main() {
     std::printf("=== Ollie 逻辑单测 ===\n");
     test_stats_decay_and_clamp();
@@ -471,6 +583,8 @@ int main() {
     test_petstate();
     test_moodlight();
     test_chatlogic();
+    test_dialog_lines();
+    test_dialog_driver();
     std::printf("\n共 %d 项断言，失败 %d → %s\n", checks, failures, failures ? "FAILED" : "ALL PASS");
     return failures ? 1 : 0;
 }

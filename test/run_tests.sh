@@ -9,7 +9,7 @@ mkdir -p build
 
 $CXX -std=c++17 -Itest/mocks -I. \
   test/test_main.cpp test/Face_stub.cpp \
-  Stats.cpp Buttons.cpp Buzzer.cpp LightSensor.cpp MoodLight.cpp PetState.cpp ChatLogic.cpp \
+  Stats.cpp Buttons.cpp Buzzer.cpp LightSensor.cpp MoodLight.cpp PetState.cpp ChatLogic.cpp Dialog.cpp \
   -o build/olllie_tests.exe
 
 ./build/olllie_tests.exe

@@ -5,6 +5,8 @@
 static const int EYE_L_CX = 40, EYE_R_CX = 88, EYE_CY = 22;
 static const int EYE_W = 24, EYE_H = 28;
 static const int MOUTH_CX = 64, SMILE_CY = 44, FROWN_CY = 56;
+static const int FONT_W = 12, FONT_H = 12;         // 台词字库字形尺寸
+static const int DIALOG_LINE_CHARS = 8;            // 每行最多字数（8*12=96 ≤ 128）
 
 bool Face::begin() {
     Wire.begin(PIN_OLED_SDA, PIN_OLED_SCL);
@@ -27,25 +29,62 @@ bool Face::begin() {
     return true;
 }
 
+// —— 覆盖队列 ——
+
 void Face::setBase(Emotion e) { base = e; }
 
 void Face::setExpression(Emotion e, uint32_t holdMs) {
-    overrideE = e;
-    overrideStart = millis();
-    overrideUntil = overrideStart + holdMs;
+    Overlay o;
+    o.kind = OvKind::Expression;
+    o.emotion = e;
+    o.dur = holdMs;
+    pushOverlay(o, millis());
 }
+
+void Face::showDialog(const char* text, uint32_t holdMs) {
+    Overlay o;
+    o.kind = OvKind::Dialog;
+    o.text = text;
+    o.dur = holdMs;
+    pushOverlay(o, millis());
+}
+
+void Face::pushOverlay(const Overlay& o, uint32_t now) {
+    uint32_t start = now;
+    if (qN_ > 0) { // 排在队列末尾之后
+        const Overlay& last = q_[qN_ - 1];
+        start = last.startAt + last.dur;
+        if ((int32_t)(start - now) > 10000) return; // 积压保护：丢弃过远的请求
+    }
+    if (qN_ >= 2) qN_ = 1; // 满了丢弃旧的排队项，保最新的
+    q_[qN_] = o;
+    q_[qN_].startAt = start;
+    qN_++;
+}
+
+void Face::expireOverlays(uint32_t now) {
+    while (qN_ > 0 && (int32_t)(now - (q_[0].startAt + q_[0].dur)) >= 0) {
+        for (uint8_t i = 1; i < qN_; i++) q_[i - 1] = q_[i];
+        qN_--;
+    }
+}
+
+const Face::Overlay* Face::activeOverlay(uint32_t now) const {
+    return (qN_ > 0 && (int32_t)(now - q_[0].startAt) >= 0) ? &q_[0] : nullptr;
+}
+
+// —— 帧驱动 ——
 
 void Face::update(uint32_t now) {
     if (now - lastFrame < FRAME_MS) return; // 限帧 ~30fps
     lastFrame = now;
 
-    Emotion e = effective(now);
-    advanceAnim(now, e);
-    render(now, e);
-}
+    expireOverlays(now);
+    const Overlay* ov = activeOverlay(now);
+    Emotion e = (ov && ov->kind == OvKind::Expression) ? ov->emotion : base;
 
-Emotion Face::effective(uint32_t now) const {
-    return (now < overrideUntil) ? overrideE : base;
+    if (!ov || ov->kind == OvKind::Expression) advanceAnim(now, e);
+    render(now, e, ov);
 }
 
 void Face::advanceAnim(uint32_t now, Emotion e) {
@@ -86,7 +125,14 @@ float Face::blinkFactor(uint32_t now) {
     return 1.0f;
 }
 
-void Face::render(uint32_t now, Emotion e) {
+void Face::render(uint32_t now, Emotion e, const Overlay* ov) {
+    if (ov && ov->kind == OvKind::Dialog) { // 台词：整屏文字，盖过一切
+        renderDialog(ov->text);
+        if (dimmed) { display.dim(false); dimmed = false; } // 台词期间保持亮度可读
+        display.display();
+        return;
+    }
+
     float f = blinkFactor(now);
     int ox = driftX, oy = driftY;
     if (e == Emotion::Sleepy) oy += (int)((now / 700) % 2); // 困倦时整脸缓慢晃动
@@ -103,7 +149,7 @@ void Face::render(uint32_t now, Emotion e) {
         drawEyeHappyArc(EYE_L_CX + ox, EYE_CY + oy);
         drawEyeHappyArc(EYE_R_CX + ox, EYE_CY + oy);
         // 触发瞬间张嘴 2 帧，随后回到大弧线笑
-        if (e == overrideE && (uint32_t)(now - overrideStart) < 150) {
+        if (ov && ov->kind == OvKind::Expression && (uint32_t)(now - ov->startAt) < 150) {
             display.fillRoundRect(MOUTH_CX - 10 + ox, SMILE_CY - 2 + oy, 20, 8, 4, SSD1306_WHITE);
         } else {
             drawArcMouth(MOUTH_CX + ox, SMILE_CY + oy, 13, true);
@@ -137,6 +183,71 @@ void Face::render(uint32_t now, Emotion e) {
     if (wantDim != dimmed) {
         display.dim(wantDim);
         dimmed = wantDim;
+    }
+    display.display();
+}
+
+// —— 台词渲染 ——
+
+// UTF-8 → 码点，s 前移；非法序列返回 0
+static uint32_t utf8Next(const char*& s) {
+    const unsigned char c = (unsigned char)*s;
+    if (c == 0) return 0;
+    if (c < 0x80) { s++; return c; }
+    int len = 0;
+    uint32_t cp = 0;
+    if ((c & 0xE0) == 0xC0) { len = 2; cp = c & 0x1F; }
+    else if ((c & 0xF0) == 0xE0) { len = 3; cp = c & 0x0F; }
+    else if ((c & 0xF8) == 0xF0) { len = 4; cp = c & 0x07; }
+    else { s++; return 0; }
+    s++;
+    for (int i = 1; i < len; i++) {
+        unsigned char cc = (unsigned char)*s;
+        if ((cc & 0xC0) != 0x80) { return 0; }
+        cp = (cp << 6) | (cc & 0x3F);
+        s++;
+    }
+    return cp;
+}
+
+void Face::renderDialog(const char* text) {
+    display.clearDisplay();
+    if (!text || !*text) {
+        display.display();
+        return;
+    }
+    // 先数总字符数决定单行还是两行
+    int total = 0;
+    for (const char* p = text; *p; ) {
+        if (utf8Next(p) == 0) break;
+        total++;
+    }
+    if (total <= DIALOG_LINE_CHARS) {
+        int x = (128 - FONT_W * total) / 2;
+        const char* p = text;
+        for (int i = 0; i < total && *p; i++) {
+            uint32_t cp = utf8Next(p);
+            const dialogfont::Glyph* g = cp ? dialogfont::findGlyph(cp) : nullptr;
+            if (g) display.drawBitmap(x + i * FONT_W, 26, g->bitmap, FONT_W, FONT_H, SSD1306_WHITE);
+        }
+    } else {
+        // 两行：前半/后半，都居中
+        int n1 = (total + 1) / 2, n2 = total - n1;
+        const char* p = text;
+        // 第一行
+        int x = (128 - FONT_W * n1) / 2;
+        for (int i = 0; i < n1 && *p; i++) {
+            uint32_t cp = utf8Next(p);
+            const dialogfont::Glyph* g = cp ? dialogfont::findGlyph(cp) : nullptr;
+            if (g) display.drawBitmap(x + i * FONT_W, 18, g->bitmap, FONT_W, FONT_H, SSD1306_WHITE);
+        }
+        // 第二行
+        x = (128 - FONT_W * n2) / 2;
+        for (int i = 0; i < n2 && *p; i++) {
+            uint32_t cp = utf8Next(p);
+            const dialogfont::Glyph* g = cp ? dialogfont::findGlyph(cp) : nullptr;
+            if (g) display.drawBitmap(x + i * FONT_W, 34, g->bitmap, FONT_W, FONT_H, SSD1306_WHITE);
+        }
     }
     display.display();
 }

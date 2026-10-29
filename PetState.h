@@ -16,6 +16,7 @@
 #include "MoodLight.h"
 #include "Buttons.h"
 #include "LightSensor.h"
+#include "Dialog.h"
 
 class PetState {
 public:
@@ -33,4 +34,5 @@ private:
     Face* face = nullptr;
     Buzzer* buzzer = nullptr;
     MoodLight* light = nullptr;
+    Dialog dialog; // v1.2 台词
 };

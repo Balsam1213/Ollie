@@ -83,6 +83,16 @@
 #define LLM_DEFAULT_PATH "/chat/completions"
 #define LLM_DEFAULT_MODEL "deepseek-chat"
 
+// ===== 台词（v1.2） =====
+#define DIALOG_ENABLE 1          // 0 = 全部台词静音（表情不受影响）
+#define DIALOG_HOLD_MS 2200      // 每句台词整屏显示时长
+#define DIALOG_FEED_FACE_MS 1400 // 喂食/抚摸：先亮开心脸多久再接台词
+#define DIALOG_MIN_GAP_MS 20000  // 两次台词最小间隔（防刷屏；事件台词不受限）
+#define DIALOG_CHATTER_MIN_S 90  // 闲聊：醒着时空闲这么久后开始
+#define DIALOG_CHATTER_MAX_S 240 // 闲聊随机上限（每次说完再随机下一次）
+#define DIALOG_IDLE_MIN_S 1800UL // 冷落：30 分钟无互动说撒娇台词（秒）
+#define DIALOG_MAX_CHARS 8       // 每句最多字数（台词表由单测强制校验）
+
 // ===== 附加功能开关（0/1，按需打开） =====
 #define BOOT_I2C_SCAN 0   // 1: 上电只跑 I2C 总线扫描并打印（M1 排查 OLED 地址/接线用）
 #define LIGHT_CALIBRATE 0 // 1: 每 500ms 打印光敏 ADC 均值（M5 标定阈值用，串口看数值）
