@@ -80,14 +80,17 @@
    | **USB CDC On Boot** | **Enabled** ← 不开这条串口/日志没有任何输出，新手第一大坑 |
    | Flash Size | **16MB** |
    | PSRAM | **OPI PSRAM** |
-   | Partition Scheme | Default 4MB with spiffs（默认即可） |
+   | Partition Scheme | **16M Flash（APP ≥3MB 的那项，名字以菜单实际为准）** ← v2 固件已超 1.2MB，默认 4MB 方案的 APP 分区会不够用 |
    | Port | 插上板子后出现的新 COM 口 |
 
    > Port 里没有新 COM 口 → 装 USB 串口驱动：多数板子是 [CP210x 驱动（Silicon Labs 官网）](https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers)，部分国产板是 CH343（搜"CH343 driver"）
 6. **编译上传**：点左上角 →（Upload）按钮。首次编译几分钟属正常
 7. **看串口日志**：右上角放大镜图标（Serial Monitor）→ 右下角波特率选 **115200**
 
-> 上传失败/超时：**按住板上 BOOT 键不放，再点一次上传**，出现 Connecting... 后松开。
+> **上传连不上？**（报错 `Connecting......` 后 `No serial data received` / `Failed to connect`——芯片没进下载模式，与代码接线无关）三步救：
+> 1. **手动进下载模式**：按住 BOOT → 短按一下 RST(EN) → 松开 RST → 松开 BOOT → 点上传
+> 2. **换 COM 口上传**：板上 USB 口负责看日志，**COM 口（串口芯片）上传最稳**（硬件自动复位进下载模式）；两口的 COM 号在 Port 菜单里不同，换口后要重选。分工：上传用 COM，看日志用 USB（CDC 日志走 USB 口）
+> 3. 仍失败：换**数据线**（充电线不行）并直插电脑、Upload Speed 降到 115200、设备管理器核对端口号
 
 ### 路线 B：VS Code + PlatformIO（备选）
 
@@ -200,7 +203,8 @@ py -m platformio device monitor   # 串口日志 115200
 |---|---|
 | 串口监视器完全没输出 | USB CDC On Boot 没开 → 工具菜单打开后重烧；或波特率不是 115200 |
 | Port 里找不到板子 | 缺 USB 串口驱动 → 装 CP210x / CH343 驱动（见第三节第 5 步） |
-| 上传失败/超时 | 按住 BOOT 键再传；换 USB 口/换线（有些线只能充电） |
+| 上传失败/超时（No serial data received） | 芯片没进下载模式 → 见第三节"上传连不上？"三步救：手动下载模式 / 换 COM 口 / 换数据线 |
+| 烧录成功但 COM 口看不到日志 | 正常：开了 USB CDC，日志走 **USB 口**——串口监视器换插 USB 口的那个 COM 号 |
 | 屏幕全黑，串口报 OLED 初始化失败 | SDA/SCL 接反 → 对调；VCC 没接 3V3；地址不是 0x3C → 把 `Config.h` 的 `BOOT_I2C_SCAN` 改 1 烧录扫描，按串口报的地址改 `OLED_ADDR` |
 | 屏亮但显示雪花/横纹 | I2C 线太长/接触不良 → 重插杜邦线 |
 | 两声哔哔变成长鸣 | 买成有源蜂鸣器 → 换无源 |
