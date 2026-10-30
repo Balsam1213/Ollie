@@ -14,7 +14,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "DialogLines.h"
 OUT = ROOT / "DialogFont.h"
-PX = 12  # 字形尺寸
+PX = 12      # 字形尺寸
+SS = 4       # 超采样倍率：先渲染 PX*SS 再平均缩小，防止细笔画在阈值化时丢失
+THRESHOLD = 90  # 降采样后覆盖率阈值（/255，约 35%）：低了发糊，高了缺笔画
 
 # 候选中文字体（按序尝试），Windows 自带
 FONT_CANDIDATES = [
@@ -43,22 +45,23 @@ def main() -> int:
     if not font_path:
         print("错误：找不到中文字体（msyh/simhei/simsun），请把字体路径加进 FONT_CANDIDATES")
         return 1
-    font = ImageFont.truetype(font_path, PX)
+    font = ImageFont.truetype(font_path, PX * SS)  # 高分辨率渲染，缩小时抗锯齿
     print(f"字体：{font_path}")
 
     glyphs = []
     empty = []
     for ch in sorted(chars):
-        img = Image.new("L", (PX, PX), 0)
+        img = Image.new("L", (PX * SS, PX * SS), 0)
         d = ImageDraw.Draw(img)
-        d.text((PX // 2, PX // 2), ch, fill=255, font=font, anchor="mm")
+        d.text((img.width // 2, img.height // 2), ch, fill=255, font=font, anchor="mm")
+        img = img.resize((PX, PX), Image.BOX)  # 平均降采样 → 每像素=覆盖率 0..255
         px = img.load()
         bitmap = []
         for y in range(PX):
             hi = 0  # x 0..7（MSB first）
             lo = 0  # x 8..11（左对齐到高位）
             for x in range(PX):
-                if px[x, y] > 128:
+                if px[x, y] > THRESHOLD:
                     if x < 8:
                         hi |= 0x80 >> x
                     else:
