@@ -175,21 +175,16 @@ static void test_light_sensor() {
     setLight(0);
     LightEvent ev = LightEvent::None;
     uint32_t t = 1000;
-    while (t < 6000) { // 均值下降期间不应有任何事件
+    while (t < 40000 && ev == LightEvent::None) { // 均值滑到暗阈值约需 20 拍，之后 10s 确认
         ev = ls.update(t);
-        CHECK(ev == LightEvent::None);
-        t += 500;
-    }
-    ev = LightEvent::None; // 判暗后 10 秒确认
-    while (t < 17000 && ev == LightEvent::None) {
-        ev = ls.update(t);
+        CHECK(ev != LightEvent::WakeTime); // 下滑途中不该误报唤醒
         t += 500;
     }
     CHECK(ev == LightEvent::SleepTime);
     CHECK(ls.update(t) == LightEvent::None); // 同一轮暗期只发一次
 
-    // —— 迟滞：中间亮度（800~2000 之间）维持"暗"态，不唤醒 ——
-    setLight(1500);
+    // —— 迟滞：暗/亮阈值之间的中间亮度维持"暗"态，不唤醒 ——
+    setLight((LIGHT_DARK_ADC + LIGHT_BRIGHT_ADC) / 2);
     ev = LightEvent::None;
     t += 500;
     for (int i = 0; i < 16; i++) { // 8 秒

@@ -70,7 +70,7 @@
 #define LED_MAX 40 // WS2812 亮度封顶（/255），防夜间刺眼
 
 // ===== v2.0 联网（网页聊天） =====
-#define OLLIE_VERSION "2.0.0-dev"
+#define OLLIE_VERSION "2.0.0"
 #define AP_SSID "Ollie-Setup"     // 配网热点名（无 WiFi 凭据时自动开启）
 #define AP_PASS "ollie12345"      // 热点密码，需 ≥8 位
 #define WIFI_RETRY_MS 15000       // STA 断开后重连间隔
